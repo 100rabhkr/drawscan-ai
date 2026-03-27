@@ -190,6 +190,14 @@
   color: var(--uri-text-muted);
   position: relative;
 }
+.sidebar-collapsed .sidebar-link {
+  justify-content: center;
+  padding: 12px 0;
+}
+.sidebar-collapsed .sidebar-link svg {
+  width: 22px;
+  height: 22px;
+}
 .sidebar-link:hover {
   background: rgba(55, 105, 249, 0.06);
   color: var(--uri-blue);
