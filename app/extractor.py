@@ -1147,6 +1147,9 @@ def structure_detections(detections: list[dict], img_height: float = 3000) -> di
 
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "minicpm-v")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+VLM_PROVIDER = os.environ.get("VLM_PROVIDER", "gemini")  # "gemini", "ollama", or "none"
 
 VLM_PROMPT = """You are an expert at reading 2D engineering drawings. Analyze this drawing image and extract ALL dimensional and specification data.
 
@@ -1249,6 +1252,53 @@ def _vlm_extract(image_bytes: bytes) -> dict | None:
         return None
 
 
+def _gemini_extract(image_bytes: bytes) -> dict | None:
+    """Send drawing image to Google Gemini for structured extraction."""
+    import requests
+
+    b64_image = base64.standard_b64encode(image_bytes).decode("utf-8")
+
+    try:
+        resp = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}",
+            json={
+                "contents": [{
+                    "parts": [
+                        {"inline_data": {"mime_type": "image/png", "data": b64_image}},
+                        {"text": VLM_PROMPT},
+                    ]
+                }],
+                "generationConfig": {"temperature": 0.1, "maxOutputTokens": 8192},
+            },
+            timeout=120,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        raw = data["candidates"][0]["content"]["parts"][0]["text"]
+        # Strip markdown fences
+        raw = re.sub(r"^```json\s*", "", raw.strip())
+        raw = re.sub(r"\s*```$", "", raw.strip())
+
+        result = json.loads(raw)
+        result.setdefault("title_block", {})
+        result.setdefault("dimensions", [])
+        result.setdefault("gdt", [])
+        result.setdefault("notes", [])
+
+        for i, dim in enumerate(result["dimensions"], 1):
+            dim["id"] = i
+            dim.setdefault("confidence", 92)
+        for i, gdt in enumerate(result["gdt"], 1):
+            gdt["id"] = i
+
+        return result
+
+    except Exception as e:
+        print(f"[GEMINI] Extraction failed: {e}")
+        return None
+
+
 def _is_ollama_available() -> bool:
     """Check if Ollama is running and the model is loaded."""
     import requests
@@ -1282,12 +1332,18 @@ def extract_drawing(pdf_path: str) -> dict:
 
     png_bytes = images[0][0]
 
-    # Step 2: Try Ollama VLM first (best accuracy)
+    # Step 2: Try VLM extraction (Gemini → Ollama → fallback)
     vlm_result = None
     engine = "fallback-paddleocr-rulebased"
 
-    if _is_ollama_available():
-        print("[VLM] Ollama available, using VLM extraction...")
+    if VLM_PROVIDER == "gemini" and GEMINI_API_KEY:
+        print("[GEMINI] Using Gemini Vision API...")
+        vlm_result = _gemini_extract(png_bytes)
+        if vlm_result:
+            engine = f"gemini-{GEMINI_MODEL}"
+
+    if not vlm_result and VLM_PROVIDER in ("ollama", "gemini") and _is_ollama_available():
+        print("[VLM] Trying Ollama fallback...")
         vlm_result = _vlm_extract(png_bytes)
         if vlm_result:
             engine = f"local-ollama-{OLLAMA_MODEL}"

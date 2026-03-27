@@ -26,7 +26,10 @@ services:
       - DB_PATH=/app/data/drawscan.db
       - OLLAMA_HOST=http://ollama:11434
       - OLLAMA_MODEL=llava:7b
-      - EXTRACTION_TIMEOUT=600
+      - EXTRACTION_TIMEOUT=300
+      - VLM_PROVIDER=gemini
+      - GEMINI_API_KEY=AIzaSyBRQtaO2RtsFiJAHpTXbLlAhz4GDuPMHkI
+      - GEMINI_MODEL=gemini-2.0-flash
       - FLAGS_use_mkldnn=0
       - MKLDNN_CACHE_CAPACITY=0
       - PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
