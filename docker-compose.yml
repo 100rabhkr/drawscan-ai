@@ -1,9 +1,9 @@
-version: "3.8"
-
 services:
   drawscan:
     build: .
     container_name: drawscan-ai
+    expose:
+      - "8000"
     ports:
       - "8500:8000"
     environment:
@@ -24,6 +24,23 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.drawscan.rule=Host(`united.360labs.ai`)"
+      - "traefik.http.routers.drawscan.entrypoints=websecure"
+      - "traefik.http.routers.drawscan.tls.certresolver=letsencrypt"
+      - "traefik.http.services.drawscan.loadbalancer.server.port=8000"
+      - "traefik.http.routers.drawscan-http.rule=Host(`united.360labs.ai`)"
+      - "traefik.http.routers.drawscan-http.entrypoints=web"
+      - "traefik.http.routers.drawscan-http.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+    networks:
+      - coolify
+
+networks:
+  coolify:
+    external: true
 
 volumes:
   drawscan-data:
