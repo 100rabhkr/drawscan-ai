@@ -1,13 +1,31 @@
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: drawscan-ollama
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
   drawscan:
     build: .
     container_name: drawscan-ai
+    depends_on:
+      ollama:
+        condition: service_healthy
     expose:
       - "8000"
     ports:
       - "8500:8000"
     environment:
       - DB_PATH=/app/data/drawscan.db
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=minicpm-v
       - FLAGS_use_mkldnn=0
       - MKLDNN_CACHE_CAPACITY=0
       - PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
@@ -40,3 +58,4 @@ volumes:
   drawscan-data:
   drawscan-uploads:
   drawscan-outputs:
+  ollama-models:

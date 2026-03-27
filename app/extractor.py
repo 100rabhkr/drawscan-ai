@@ -5,8 +5,11 @@ Core extraction pipeline — FULLY LOCAL, no external API calls.
 All processing runs inside the Docker container. Data never leaves the server.
 """
 
+import base64
 import io
+import json
 import math
+import os
 import re
 from pathlib import Path
 
@@ -1139,6 +1142,127 @@ def structure_detections(detections: list[dict], img_height: float = 3000) -> di
 
 
 # ---------------------------------------------------------------------------
+# Stage 6: Ollama VLM — local vision model for structured extraction
+# ---------------------------------------------------------------------------
+
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "minicpm-v")
+
+VLM_PROMPT = """You are an expert at reading 2D engineering drawings. Analyze this drawing image and extract ALL dimensional and specification data.
+
+Return ONLY a valid JSON object (no markdown, no explanation) with this structure:
+{
+  "title_block": {
+    "part_name": "",
+    "drawing_number": "",
+    "material": "",
+    "revision": "",
+    "drawn_by": "",
+    "checked_by": "",
+    "approved_by": "",
+    "date": "",
+    "customer": "",
+    "scale": "",
+    "sheet": "",
+    "general_tolerance": "",
+    "weight": ""
+  },
+  "dimensions": [
+    {
+      "id": 1,
+      "description": "e.g. Linear dimension, Diameter, Radius, Countersink, Wall thickness",
+      "type": "linear|diameter|radius|countersink|angle",
+      "nominal_value": "the value as written e.g. '55', 'Ø16', 'R14', '4.0'",
+      "tolerance_upper": "+0.13 or ±0.25 or null",
+      "tolerance_lower": "-0.38 or ±0.25 or null",
+      "unit": "mm",
+      "suggested_instrument": "Vernier caliper, Micrometer, Radius gauge, etc."
+    }
+  ],
+  "gdt": [
+    {
+      "id": 1,
+      "symbol": "Position, Flatness, etc.",
+      "tolerance_value": "0.5",
+      "modifier": "MMC or null",
+      "datum_references": ["A", "B"],
+      "applied_to": "which feature"
+    }
+  ],
+  "notes": ["each note as a string"]
+}
+
+CRITICAL RULES:
+- Extract ONLY actual dimensions (lengths, diameters, radii, angles, tolerances)
+- Do NOT extract balloon/callout numbers (circled numbers like ①②③ that point to features)
+- Do NOT extract revision numbers, page numbers, zone letters (A,B,C,D,E), grid numbers (1,2,3,4,5)
+- Do NOT extract temperatures (225°F), pressures (36 PSI), or other specifications as dimensions
+- For dimensions with tolerances like "4.0±0.5" or "Ø17.90±0.80", include the tolerance
+- Multiplied dims like "2X R25.0" or "4X 15.0" are ONE entry with nominal "2X R25.0"
+- Return ONLY valid JSON, nothing else"""
+
+
+def _vlm_extract(image_bytes: bytes) -> dict | None:
+    """Send drawing image to local Ollama VLM for structured extraction."""
+    import requests
+
+    b64_image = base64.standard_b64encode(image_bytes).decode("utf-8")
+
+    try:
+        resp = requests.post(
+            f"{OLLAMA_HOST}/api/generate",
+            json={
+                "model": OLLAMA_MODEL,
+                "prompt": VLM_PROMPT,
+                "images": [b64_image],
+                "stream": False,
+                "options": {"temperature": 0.1, "num_predict": 4096},
+            },
+            timeout=300,
+        )
+        resp.raise_for_status()
+        raw = resp.json().get("response", "")
+
+        # Strip markdown fences if present
+        raw = re.sub(r"^```json\s*", "", raw.strip())
+        raw = re.sub(r"\s*```$", "", raw.strip())
+
+        result = json.loads(raw)
+
+        # Ensure required keys exist
+        result.setdefault("title_block", {})
+        result.setdefault("dimensions", [])
+        result.setdefault("gdt", [])
+        result.setdefault("notes", [])
+
+        # Add IDs and confidence
+        for i, dim in enumerate(result["dimensions"], 1):
+            dim["id"] = i
+            dim.setdefault("confidence", 90)
+        for i, gdt in enumerate(result["gdt"], 1):
+            gdt["id"] = i
+
+        return result
+
+    except (requests.RequestException, json.JSONDecodeError, KeyError) as e:
+        print(f"[VLM] Ollama extraction failed: {e}")
+        return None
+
+
+def _is_ollama_available() -> bool:
+    """Check if Ollama is running and the model is loaded."""
+    import requests
+    try:
+        resp = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=5)
+        if resp.ok:
+            models = [m["name"] for m in resp.json().get("models", [])]
+            return any(OLLAMA_MODEL in m for m in models)
+    except requests.RequestException:
+        pass
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Full pipeline
 # ---------------------------------------------------------------------------
 
@@ -1146,26 +1270,41 @@ def extract_drawing(pdf_path: str) -> dict:
     """
     Run the full LOCAL extraction pipeline on a PDF drawing.
     No external API calls. Everything runs on-premise.
+
+    Pipeline:
+      PDF → rasterize → Ollama VLM (primary) or PaddleOCR + rules (fallback) → JSON
     """
-    # Step 1: Try programmatic text extraction first (fastest, most accurate)
-    pdf_pages = extract_pdf_text_blocks(pdf_path)
-    has_embedded = any(p["has_embedded_text"] for p in pdf_pages)
+    # Step 1: Rasterize PDF to image
+    images = pdf_to_images(pdf_path, dpi=200)
+    if not images:
+        return {"title_block": {}, "dimensions": [], "gdt": [], "notes": [],
+                "_meta": {"error": "No pages in PDF"}}
 
-    # Step 2: Rasterize — 150 DPI is enough since we also have embedded text
-    images = pdf_to_images(pdf_path, dpi=150)
+    png_bytes = images[0][0]
 
-    all_pages = []
-    for png_bytes, page_num in images:
-        # Step 3: OCR extraction
+    # Step 2: Try Ollama VLM first (best accuracy)
+    vlm_result = None
+    engine = "fallback-paddleocr-rulebased"
+
+    if _is_ollama_available():
+        print("[VLM] Ollama available, using VLM extraction...")
+        vlm_result = _vlm_extract(png_bytes)
+        if vlm_result:
+            engine = f"local-ollama-{OLLAMA_MODEL}"
+
+    # Step 3: If VLM failed, fall back to PaddleOCR + rule-based parser
+    if vlm_result:
+        result = vlm_result
+    else:
+        print("[FALLBACK] Using PaddleOCR + rule-based parser...")
+        pdf_pages = extract_pdf_text_blocks(pdf_path)
+        has_embedded = any(p["has_embedded_text"] for p in pdf_pages)
+
         ocr_results = ocr_extract(png_bytes)
 
-        # If we have embedded text, merge it with OCR for better coverage
-        if has_embedded and page_num <= len(pdf_pages):
-            pdf_blocks = pdf_pages[page_num - 1]["blocks"]
-            for block in pdf_blocks:
+        if has_embedded:
+            for block in pdf_pages[0]["blocks"]:
                 if block["text"] and len(block["text"]) > 0:
-                    # Detect balloon callouts: bold font, ~14pt, text is a small integer
-                    # These are numbered callouts (1-99) pointing to features, NOT dimensions
                     is_balloon = (
                         "Bold" in block.get("font", "") and
                         block.get("size", 0) >= 12 and
@@ -1178,44 +1317,12 @@ def extract_drawing(pdf_path: str) -> dict:
                         "_is_balloon": is_balloon,
                     })
 
-        # Step 4: Get image dimensions for title block detection
         img = Image.open(io.BytesIO(png_bytes))
-        img_height = img.height
-
-        # Step 5: Structure the detections using rule-based parser
-        extraction = structure_detections(ocr_results, img_height)
-
-        all_pages.append({
-            "page": page_num,
-            "ocr_detection_count": len(ocr_results),
-            "extraction": extraction,
-        })
-
-    # Merge multi-page results
-    if len(all_pages) == 1:
-        result = all_pages[0]["extraction"]
-    else:
-        merged = all_pages[0]["extraction"]
-        for page_data in all_pages[1:]:
-            ext = page_data["extraction"]
-            merged["dimensions"].extend(ext.get("dimensions", []))
-            merged["gdt"].extend(ext.get("gdt", []))
-            merged["notes"].extend(ext.get("notes", []))
-        for i, dim in enumerate(merged["dimensions"], 1):
-            dim["id"] = i
-        for i, gdt in enumerate(merged["gdt"], 1):
-            gdt["id"] = i
-        result = merged
+        result = structure_detections(ocr_results, img.height)
 
     result["_meta"] = {
-        "pages": len(all_pages),
-        "has_embedded_text": has_embedded,
-        "ocr_detections": sum(p["ocr_detection_count"] for p in all_pages),
-        "engine": "local-paddleocr-rulebased",
+        "pages": len(images),
+        "engine": engine,
     }
-
-    # Include first page preview image to avoid double rasterization in caller
-    if images:
-        result["_preview_png"] = images[0][0]
-
+    result["_preview_png"] = png_bytes
     return result
