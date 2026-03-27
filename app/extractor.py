@@ -1024,7 +1024,16 @@ def structure_detections(detections: list[dict], img_height: float = 3000) -> di
     # Extract GD&T
     gdt_items = _extract_gdt(detections_sorted, img_height)
 
-    # Extract dimensions — skip title block region and tolerance-only fragments
+    # Count balloon callouts (for balloon drawings)
+    balloon_numbers = []
+    for det in detections_sorted:
+        if det.get('_is_balloon'):
+            try:
+                balloon_numbers.append(int(det['text'].strip()))
+            except ValueError:
+                pass
+
+    # Extract dimensions — skip title block, balloons, and tolerance fragments
     dimensions = []
     seen_values = set()
 
@@ -1032,6 +1041,19 @@ def structure_detections(detections: list[dict], img_height: float = 3000) -> di
         # Skip low-confidence detections
         if det['confidence'] < 0.5:
             continue
+        # Skip balloon callouts — they are NOT dimensions
+        if det.get('_is_balloon'):
+            continue
+        # If this drawing has balloons, skip bare integers that match balloon numbers
+        # (OCR may also detect them without the font metadata)
+        if balloon_numbers:
+            text_stripped = det['text'].strip()
+            if re.match(r'^\d{1,2}$', text_stripped):
+                try:
+                    if int(text_stripped) in balloon_numbers:
+                        continue
+                except ValueError:
+                    pass
 
         is_tb = _is_in_lower_region(det['bbox'], img_height, 0.7)
         text = det['text'].strip()
@@ -1111,7 +1133,8 @@ def structure_detections(detections: list[dict], img_height: float = 3000) -> di
         'dimensions': dimensions,
         'gdt': gdt_items,
         'notes': notes,
-        'balloon_count': None,
+        'balloon_count': len(balloon_numbers) if balloon_numbers else None,
+        'balloon_numbers': sorted(balloon_numbers) if balloon_numbers else None,
     }
 
 
@@ -1141,11 +1164,18 @@ def extract_drawing(pdf_path: str) -> dict:
             pdf_blocks = pdf_pages[page_num - 1]["blocks"]
             for block in pdf_blocks:
                 if block["text"] and len(block["text"]) > 0:
-                    # Add PDF text blocks as high-confidence detections
+                    # Detect balloon callouts: bold font, ~14pt, text is a small integer
+                    # These are numbered callouts (1-99) pointing to features, NOT dimensions
+                    is_balloon = (
+                        "Bold" in block.get("font", "") and
+                        block.get("size", 0) >= 12 and
+                        re.match(r'^\d{1,2}$', block["text"].strip())
+                    )
                     ocr_results.append({
                         "text": block["text"],
                         "confidence": 0.99,
                         "bbox": block["bbox"],
+                        "_is_balloon": is_balloon,
                     })
 
         # Step 4: Get image dimensions for title block detection
