@@ -25,7 +25,8 @@ services:
     environment:
       - DB_PATH=/app/data/drawscan.db
       - OLLAMA_HOST=http://ollama:11434
-      - OLLAMA_MODEL=minicpm-v
+      - OLLAMA_MODEL=llava:7b
+      - EXTRACTION_TIMEOUT=600
       - FLAGS_use_mkldnn=0
       - MKLDNN_CACHE_CAPACITY=0
       - PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
