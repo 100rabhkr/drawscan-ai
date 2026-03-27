@@ -125,14 +125,14 @@ async def login_page(request: Request):
     user = get_current_user(request)
     if user:
         return RedirectResponse("/dashboard", status_code=303)
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    return templates.TemplateResponse("login.html", {"request": request, "error": None}, request=request)
 
 
 @app.post("/login")
 async def login_submit(request: Request, email: str = Form(...), password: str = Form(...)):
     user = authenticate(email, password)
     if not user:
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid email or password"})
+        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid email or password"}, request=request)
     token = create_session(user["id"])
     response = RedirectResponse("/dashboard", status_code=303)
     response.set_cookie("session_token", token, httponly=True, samesite="lax", max_age=7 * 86400)
@@ -172,7 +172,7 @@ async def dashboard(request: Request):
     stats = get_stats(user["id"])
     extractions = get_user_extractions(user["id"], limit=10)
     ctx = base_context(request, user, stats=stats, extractions=extractions, page="dashboard")
-    return templates.TemplateResponse("dashboard.html", ctx)
+    return templates.TemplateResponse("dashboard.html", ctx, request=request)
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +185,7 @@ async def upload_page(request: Request):
     if not user:
         return RedirectResponse("/login", status_code=303)
     ctx = base_context(request, user, page="upload")
-    return templates.TemplateResponse("upload.html", ctx)
+    return templates.TemplateResponse("upload.html", ctx, request=request)
 
 
 @app.post("/api/upload")
@@ -340,7 +340,7 @@ async def review_page(extraction_id: int, request: Request):
         extraction_data = json.loads(ext["extraction_json"])
 
     ctx = base_context(request, user, extraction=ext, extraction_data=extraction_data, page="review")
-    return templates.TemplateResponse("review.html", ctx)
+    return templates.TemplateResponse("review.html", ctx, request=request)
 
 
 @app.post("/api/extraction/{extraction_id}/approve")
@@ -385,7 +385,7 @@ async def reports_page(request: Request):
     extractions = get_user_extractions(user["id"], limit=50)
     completed = [e for e in extractions if e["status"] == "complete"]
     ctx = base_context(request, user, reports=completed, page="reports")
-    return templates.TemplateResponse("reports.html", ctx)
+    return templates.TemplateResponse("reports.html", ctx, request=request)
 
 
 @app.get("/api/report/{extraction_id}/download")
@@ -424,7 +424,7 @@ async def admin_page(request: Request):
         u["monthly_usage"] = get_user_monthly_usage(u["id"])
 
     ctx = base_context(request, user, all_users=users, all_extractions=all_extractions, global_stats=global_stats, page="admin")
-    return templates.TemplateResponse("admin.html", ctx)
+    return templates.TemplateResponse("admin.html", ctx, request=request)
 
 
 @app.post("/api/admin/users")
