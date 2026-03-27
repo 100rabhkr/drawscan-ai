@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  drawscan:
+    build: .
+    container_name: drawscan-ai
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_PATH=/app/data/drawscan.db
+      - UPLOAD_DIR=/app/uploads
+      - OUTPUT_DIR=/app/outputs
+      - MAX_FILE_SIZE_MB=20
+    volumes:
+      - drawscan-data:/app/data
+      - drawscan-uploads:/app/uploads
+      - drawscan-outputs:/app/outputs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  drawscan-data:
+  drawscan-uploads:
+  drawscan-outputs:

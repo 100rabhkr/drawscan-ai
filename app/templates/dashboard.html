@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block breadcrumb %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="p-6 space-y-6" x-data="dashboardApp()">
+
+  <!-- Welcome banner -->
+  <div class="relative overflow-hidden rounded-xl bg-gradient-to-r from-uri-blue to-uri-blue-dark p-6 text-white">
+    <div class="relative z-10">
+      <div class="flex items-center gap-3 mb-1">
+        <h1 class="font-heading font-700 text-xl">Welcome back, {{ user.name }}</h1>
+        <span class="sla-badge {{ user.sla_tier }}" style="color: white; border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.1);">{{ sla.label }}</span>
+      </div>
+      <p class="text-sm text-white/70">Upload engineering drawings and generate dimensional inspection reports automatically.</p>
+    </div>
+    <!-- Blueprint pattern overlay -->
+    <div class="absolute inset-0 opacity-[0.06]" style="background-image: linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px); background-size: 32px 32px;"></div>
+    <!-- Corner decoration -->
+    <div class="absolute top-3 right-3 font-mono text-[9px] text-white/20 tracking-widest">REV A &bull; {{ now.strftime('%d.%m.%Y') }}</div>
+  </div>
+
+  <!-- Stats cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="stat-card bg-white dark:bg-uri-dark-card rounded-xl p-5 border border-gray-100 dark:border-uri-dark-border">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-9 h-9 rounded-lg bg-uri-blue/10 flex items-center justify-center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3769F9" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+        </div>
+        <span class="font-mono text-[9px] text-gray-400 uppercase">Total</span>
+      </div>
+      <div class="font-mono font-700 text-2xl text-gray-900 dark:text-white">{{ stats.total_drawings }}</div>
+      <div class="text-xs text-gray-500 mt-1">Drawings Processed</div>
+    </div>
+
+    <div class="stat-card green bg-white dark:bg-uri-dark-card rounded-xl p-5 border border-gray-100 dark:border-uri-dark-border">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-9 h-9 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#61CE70" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>
+        </div>
+        <span class="font-mono text-[9px] text-gray-400 uppercase">Complete</span>
+      </div>
+      <div class="font-mono font-700 text-2xl text-gray-900 dark:text-white">{{ stats.reports_generated }}</div>
+      <div class="text-xs text-gray-500 mt-1">Reports Generated</div>
+    </div>
+
+    <div class="stat-card bg-white dark:bg-uri-dark-card rounded-xl p-5 border border-gray-100 dark:border-uri-dark-border">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-9 h-9 rounded-lg bg-uri-blue/10 flex items-center justify-center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3769F9" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <span class="font-mono text-[9px] text-gray-400 uppercase">Avg</span>
+      </div>
+      <div class="font-mono font-700 text-2xl text-gray-900 dark:text-white">{{ stats.avg_processing_time }}s</div>
+      <div class="text-xs text-gray-500 mt-1">Avg Processing Time</div>
+    </div>
+
+    <div class="stat-card amber bg-white dark:bg-uri-dark-card rounded-xl p-5 border border-gray-100 dark:border-uri-dark-border">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-9 h-9 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <span class="font-mono text-[9px] text-gray-400 uppercase">Quality</span>
+      </div>
+      <div class="font-mono font-700 text-2xl text-gray-900 dark:text-white">{{ stats.avg_accuracy }}%</div>
+      <div class="text-xs text-gray-500 mt-1">Accuracy Rate</div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Quick upload -->
+    <div class="bg-white dark:bg-uri-dark-card rounded-xl border border-gray-100 dark:border-uri-dark-border p-5">
+      <div class="flex items-center gap-2 mb-4">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3769F9" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <h3 class="font-heading font-600 text-sm">Quick Upload</h3>
+      </div>
+      <a href="/upload"
+         class="dropzone flex flex-col items-center justify-center py-10 px-6 text-center cursor-pointer">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3769F9" stroke-width="1.5" class="mb-3 opacity-50">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/>
+          <path d="M12 18v-6"/><path d="M9 15l3-3 3 3"/>
+        </svg>
+        <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Drop PDF or click to upload</span>
+        <span class="text-xs text-gray-400 mt-1">Max {{ '20' }}MB per file</span>
+      </a>
+
+      <!-- SLA usage -->
+      <div class="mt-4 pt-4 border-t border-gray-100 dark:border-uri-dark-border">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs text-gray-500">Monthly usage</span>
+          <span class="font-mono text-xs text-gray-900 dark:text-white font-600">{{ usage }} / {{ sla.max_drawings_per_month }}</span>
+        </div>
+        <div class="usage-meter">
+          <div class="usage-fill {% if usage_pct > 90 %}critical{% elif usage_pct > 70 %}warning{% endif %}"
+               style="width: {{ usage_pct }}%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent extractions -->
+    <div class="lg:col-span-2 bg-white dark:bg-uri-dark-card rounded-xl border border-gray-100 dark:border-uri-dark-border">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-uri-dark-border">
+        <div class="flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3769F9" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <h3 class="font-heading font-600 text-sm">Recent Extractions</h3>
+        </div>
+        <a href="/reports" class="text-xs text-uri-blue hover:underline font-medium">View all</a>
+      </div>
+
+      {% if extractions %}
+      <div class="overflow-x-auto">
+        <table class="w-full data-table">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Status</th>
+              <th>Accuracy</th>
+              <th>Time</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ext in extractions %}
+            <tr>
+              <td>
+                <div class="flex items-center gap-2.5">
+                  <div class="w-8 h-8 rounded bg-gray-50 dark:bg-uri-dark-surface flex items-center justify-center flex-shrink-0">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7A7A7A" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+                  </div>
+                  <span class="text-sm font-medium truncate max-w-[180px]">{{ ext.filename }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="flex items-center gap-1.5">
+                  <span class="status-dot {{ ext.status }}"></span>
+                  <span class="text-xs font-mono capitalize">{{ ext.status }}</span>
+                </div>
+              </td>
+              <td>
+                <span class="font-mono text-xs">{% if ext.accuracy_score %}{{ ext.accuracy_score }}%{% else %}—{% endif %}</span>
+              </td>
+              <td>
+                <span class="font-mono text-xs">{% if ext.processing_time_ms %}{{ (ext.processing_time_ms / 1000)|round(1) }}s{% else %}—{% endif %}</span>
+              </td>
+              <td>
+                <span class="text-xs text-gray-400">{{ ext.created_at[:10] }}</span>
+              </td>
+              <td>
+                {% if ext.status == 'review' %}
+                <a href="/review/{{ ext.id }}" class="text-xs text-uri-blue hover:underline font-medium">Review</a>
+                {% elif ext.status == 'complete' %}
+                <a href="/api/report/{{ ext.id }}/download" class="text-xs text-uri-green hover:underline font-medium">Download</a>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="flex flex-col items-center justify-center py-12 text-gray-400">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mb-3 opacity-40">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/>
+        </svg>
+        <span class="text-sm">No extractions yet</span>
+        <a href="/upload" class="text-xs text-uri-blue hover:underline mt-1">Upload your first drawing</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function dashboardApp() {
+  return {}
+}
+</script>
+{% endblock %}

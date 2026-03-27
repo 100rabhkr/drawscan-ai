@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" x-data="{ darkMode: localStorage.getItem('darkMode') === 'true', sidebarOpen: true, toasts: [] }"
+      :class="{ 'dark': darkMode }" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}DrawScan AI{% endblock %} — United Rubber Industries</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="/static/css/custom.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%233769F9'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' font-size='16' font-weight='bold' fill='white' font-family='monospace'>D</text></svg>">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            uri: {
+              blue: '#3769F9',
+              'blue-dark': '#1863DC',
+              'blue-deep': '#0D3B8F',
+              'blue-glow': '#5A8AFF',
+              green: '#61CE70',
+              dark: '#0A0F1C',
+              'dark-card': '#111827',
+              'dark-surface': '#1A2235',
+              'dark-border': '#2A3550',
+            }
+          },
+          fontFamily: {
+            heading: ['Manrope', 'sans-serif'],
+            body: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="h-full font-body bg-[#F5F7FC] text-gray-900 dark:bg-uri-dark dark:text-gray-100 transition-colors duration-200">
+
+  <div class="flex h-full">
+    <!-- ═══════════ SIDEBAR ═══════════ -->
+    <aside :class="sidebarOpen ? 'w-64' : 'w-16'"
+           class="flex flex-col h-full bg-white dark:bg-uri-dark-card border-r border-gray-200 dark:border-uri-dark-border transition-all duration-200 flex-shrink-0">
+
+      <!-- Logo -->
+      <div class="flex items-center gap-3 px-4 h-16 border-b border-gray-200 dark:border-uri-dark-border">
+        <div class="w-9 h-9 rounded-lg bg-uri-blue flex items-center justify-center flex-shrink-0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/>
+            <path d="M14 2v6h6"/>
+            <path d="M9 15h6"/>
+            <path d="M9 11h6"/>
+          </svg>
+        </div>
+        <div x-show="sidebarOpen" x-transition class="overflow-hidden">
+          <div class="font-heading font-800 text-sm tracking-tight leading-none">DrawScan</div>
+          <div class="font-mono text-[9px] text-uri-blue tracking-widest uppercase">AI Engine</div>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <a href="/dashboard" class="sidebar-link {% if page == 'dashboard' %}active{% endif %}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
+          <span x-show="sidebarOpen">Dashboard</span>
+        </a>
+        <a href="/upload" class="sidebar-link {% if page == 'upload' %}active{% endif %}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span x-show="sidebarOpen">Upload & Extract</span>
+        </a>
+        <a href="/reports" class="sidebar-link {% if page == 'reports' %}active{% endif %}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/>
+            <path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>
+          </svg>
+          <span x-show="sidebarOpen">Reports</span>
+        </a>
+
+        {% if user.is_admin %}
+        <div class="pt-4 mt-4 border-t border-gray-100 dark:border-uri-dark-border">
+          <div x-show="sidebarOpen" class="px-3 mb-2 font-mono text-[9px] text-gray-400 uppercase tracking-widest">Admin</div>
+          <a href="/admin" class="sidebar-link {% if page == 'admin' %}active{% endif %}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            <span x-show="sidebarOpen">Admin Panel</span>
+          </a>
+        </div>
+        {% endif %}
+      </nav>
+
+      <!-- SLA Usage -->
+      <div x-show="sidebarOpen" class="px-4 py-3 border-t border-gray-100 dark:border-uri-dark-border">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-mono text-[10px] text-gray-400 uppercase tracking-wider">Usage</span>
+          <span class="font-mono text-[10px] text-gray-500">{{ usage }}/{{ sla.max_drawings_per_month }}</span>
+        </div>
+        <div class="usage-meter">
+          <div class="usage-fill {% if usage_pct > 90 %}critical{% elif usage_pct > 70 %}warning{% endif %}"
+               style="width: {{ usage_pct }}%"></div>
+        </div>
+      </div>
+
+      <!-- User -->
+      <div class="px-3 py-3 border-t border-gray-100 dark:border-uri-dark-border" x-data="{ userMenu: false }">
+        <button @click="userMenu = !userMenu" class="flex items-center gap-3 w-full px-2 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-uri-dark-surface transition-colors">
+          <div class="w-8 h-8 rounded-full bg-uri-blue/10 flex items-center justify-center flex-shrink-0">
+            <span class="font-heading font-700 text-xs text-uri-blue">{{ user.name[0] }}</span>
+          </div>
+          <div x-show="sidebarOpen" class="flex-1 text-left overflow-hidden">
+            <div class="text-sm font-medium truncate">{{ user.name }}</div>
+            <span class="sla-badge {{ user.sla_tier }}">{{ sla.label }}</span>
+          </div>
+        </button>
+        <div x-show="userMenu" @click.outside="userMenu = false" x-transition
+             class="absolute bottom-16 left-3 right-3 bg-white dark:bg-uri-dark-card rounded-lg shadow-lg border border-gray-200 dark:border-uri-dark-border py-1 z-50">
+          <a href="/logout" class="block px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-uri-dark-surface">Sign out</a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ═══════════ MAIN CONTENT ═══════════ -->
+    <div class="flex-1 flex flex-col min-w-0 h-full">
+      <!-- Top bar -->
+      <header class="h-14 flex items-center justify-between px-6 border-b border-gray-200 dark:border-uri-dark-border bg-white/80 dark:bg-uri-dark-card/80 backdrop-blur-sm flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <button @click="sidebarOpen = !sidebarOpen" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-uri-dark-surface transition-colors">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+          <div class="text-sm font-heading font-600 text-gray-400">
+            {% block breadcrumb %}Dashboard{% endblock %}
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <!-- Dark mode toggle -->
+          <button @click="darkMode = !darkMode; localStorage.setItem('darkMode', darkMode)"
+                  class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-uri-dark-surface transition-colors">
+            <svg x-show="!darkMode" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+            <svg x-show="darkMode" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Page content -->
+      <main class="flex-1 overflow-y-auto blueprint-grid">
+        <div class="page-enter">
+          {% block content %}{% endblock %}
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div class="fixed bottom-4 right-4 z-50 space-y-2">
+    <template x-for="toast in toasts" :key="toast.id">
+      <div class="toast-enter flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg bg-white dark:bg-uri-dark-card border border-gray-200 dark:border-uri-dark-border max-w-sm"
+           x-init="setTimeout(() => toasts = toasts.filter(t => t.id !== toast.id), 4000)">
+        <div :class="toast.type === 'success' ? 'text-uri-green' : toast.type === 'error' ? 'text-red-500' : 'text-uri-blue'">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+        </div>
+        <span class="text-sm" x-text="toast.message"></span>
+      </div>
+    </template>
+  </div>
+
+  <script>
+    function addToast(message, type = 'info') {
+      const event = new CustomEvent('add-toast', { detail: { message, type, id: Date.now() } });
+      document.dispatchEvent(event);
+    }
+    document.addEventListener('add-toast', (e) => {
+      const root = document.querySelector('[x-data]');
+      if (root && root.__x) {
+        root.__x.$data.toasts.push(e.detail);
+      }
+    });
+  </script>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

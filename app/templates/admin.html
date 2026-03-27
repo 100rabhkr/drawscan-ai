@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel{% endblock %}
+{% block breadcrumb %}Admin Panel{% endblock %}
+
+{% block content %}
+<div class="p-6 space-y-6" x-data="adminApp()">
+
+  <!-- Stats overview -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="stat-card bg-white dark:bg-uri-dark-card rounded-xl p-5 border border-gray-100 dark:border-uri-dark-border">
+      <div class="font-mono text-[9px] text-gray-400 uppercase tracking-wider mb-1">Total Users</div>
+      <div class="font-mono font-700 text-2xl text-gray-900 dark:text-white">{{ all_users|length }}</div>
+    </div>
+    <div class="stat-card bg-white dark:bg-uri-dark-card rounded-xl p-5 border border-gray-100 dark:border-uri-dark-border">
+      <div class="font-mono text-[9px] text-gray-400 uppercase tracking-wider mb-1">Total Extractions</div>
+      <div class="font-mono font-700 text-2xl text-gray-900 dark:text-white">{{ global_stats.total_drawings }}</div>
+    </div>
+    <div class="stat-card green bg-white dark:bg-uri-dark-card rounded-xl p-5 border border-gray-100 dark:border-uri-dark-border">
+      <div class="font-mono text-[9px] text-gray-400 uppercase tracking-wider mb-1">Reports Generated</div>
+      <div class="font-mono font-700 text-2xl text-gray-900 dark:text-white">{{ global_stats.reports_generated }}</div>
+    </div>
+  </div>
+
+  <!-- User management -->
+  <div class="bg-white dark:bg-uri-dark-card rounded-xl border border-gray-100 dark:border-uri-dark-border">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-uri-dark-border">
+      <div class="flex items-center gap-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3769F9" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <h3 class="font-heading font-600 text-sm text-gray-900 dark:text-white">User Management</h3>
+      </div>
+      <button @click="showCreateUser = true"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-uri-blue text-white font-heading font-600 text-xs hover:bg-uri-blue-dark transition-all">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add User
+      </button>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full data-table">
+        <thead>
+          <tr class="bg-gray-50 dark:bg-uri-dark-surface">
+            <th>User</th>
+            <th>SLA Tier</th>
+            <th>Role</th>
+            <th>Usage</th>
+            <th>Last Login</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in all_users %}
+          <tr>
+            <td>
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-uri-blue/10 flex items-center justify-center flex-shrink-0">
+                  <span class="font-heading font-700 text-xs text-uri-blue">{{ u.name[0] }}</span>
+                </div>
+                <div>
+                  <div class="text-sm font-medium text-gray-900 dark:text-white">{{ u.name }}</div>
+                  <div class="text-xs text-gray-400">{{ u.email }}</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="sla-badge {{ u.sla_tier }}">{{ u.sla_tier }}</span></td>
+            <td>
+              {% if u.is_admin %}
+              <span class="inline-flex px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 font-mono text-[10px] uppercase font-600">Admin</span>
+              {% else %}
+              <span class="font-mono text-[10px] text-gray-400 uppercase">User</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="font-mono text-xs">{{ u.monthly_usage }}</span>
+            </td>
+            <td>
+              <span class="text-xs text-gray-400">{{ u.last_login[:10] if u.last_login else 'Never' }}</span>
+            </td>
+            <td>
+              {% if u.is_active %}
+              <span class="inline-flex items-center gap-1 text-xs text-uri-green"><span class="w-1.5 h-1.5 rounded-full bg-uri-green"></span> Active</span>
+              {% else %}
+              <span class="inline-flex items-center gap-1 text-xs text-gray-400"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Disabled</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="flex items-center gap-1">
+                <button @click="editUser({{ u | tojson }})"
+                        class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-uri-dark-surface text-gray-400 hover:text-uri-blue transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                {% if u.id != user.id %}
+                <button @click="deleteUser({{ u.id }})"
+                        class="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Create User Modal -->
+  <div x-show="showCreateUser" x-transition.opacity class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showCreateUser = false">
+    <div class="bg-white dark:bg-uri-dark-card rounded-xl border border-gray-200 dark:border-uri-dark-border shadow-xl w-full max-w-md" @click.stop>
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-uri-dark-border">
+        <h3 class="font-heading font-600 text-base text-gray-900 dark:text-white">Create User</h3>
+        <button @click="showCreateUser = false" class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-uri-dark-surface text-gray-400">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block font-mono text-[10px] text-gray-400 uppercase tracking-widest mb-1.5">Name</label>
+          <input x-model="newUser.name" type="text" class="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-uri-dark-surface border border-gray-200 dark:border-uri-dark-border text-sm focus:outline-none focus:border-uri-blue focus:ring-2 focus:ring-uri-blue/20" placeholder="Full name">
+        </div>
+        <div>
+          <label class="block font-mono text-[10px] text-gray-400 uppercase tracking-widest mb-1.5">Email</label>
+          <input x-model="newUser.email" type="email" class="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-uri-dark-surface border border-gray-200 dark:border-uri-dark-border text-sm focus:outline-none focus:border-uri-blue focus:ring-2 focus:ring-uri-blue/20" placeholder="user@unitedrubber.com">
+        </div>
+        <div>
+          <label class="block font-mono text-[10px] text-gray-400 uppercase tracking-widest mb-1.5">Password</label>
+          <input x-model="newUser.password" type="password" class="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-uri-dark-surface border border-gray-200 dark:border-uri-dark-border text-sm focus:outline-none focus:border-uri-blue focus:ring-2 focus:ring-uri-blue/20" placeholder="Minimum 6 characters">
+        </div>
+        <div>
+          <label class="block font-mono text-[10px] text-gray-400 uppercase tracking-widest mb-1.5">SLA Tier</label>
+          <select x-model="newUser.sla_tier" class="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-uri-dark-surface border border-gray-200 dark:border-uri-dark-border text-sm focus:outline-none focus:border-uri-blue focus:ring-2 focus:ring-uri-blue/20">
+            <option value="starter">Starter (10/month)</option>
+            <option value="professional">Professional (50/month)</option>
+            <option value="enterprise">Enterprise (Unlimited)</option>
+          </select>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input x-model="newUser.is_admin" type="checkbox" class="w-4 h-4 rounded border-gray-300 text-uri-blue focus:ring-uri-blue/30">
+          <span class="text-sm text-gray-600 dark:text-gray-400">Admin access</span>
+        </label>
+      </div>
+      <div class="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 dark:border-uri-dark-border">
+        <button @click="showCreateUser = false" class="px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 dark:hover:bg-uri-dark-surface transition-colors">Cancel</button>
+        <button @click="createUser()" :disabled="creating"
+                class="px-4 py-2 rounded-lg bg-uri-blue text-white text-sm font-heading font-600 hover:bg-uri-blue-dark transition-colors disabled:opacity-50">
+          <span x-text="creating ? 'Creating...' : 'Create User'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function adminApp() {
+  return {
+    showCreateUser: false,
+    creating: false,
+    newUser: { name: '', email: '', password: '', sla_tier: 'professional', is_admin: false },
+
+    async createUser() {
+      this.creating = true;
+      try {
+        const resp = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.newUser)
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error);
+        this.showCreateUser = false;
+        window.location.reload();
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        this.creating = false;
+      }
+    },
+
+    editUser(user) {
+      const tier = prompt('Set SLA tier (starter / professional / enterprise):', user.sla_tier);
+      if (tier && ['starter', 'professional', 'enterprise'].includes(tier)) {
+        fetch(`/api/admin/users/${user.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sla_tier: tier })
+        }).then(() => window.location.reload());
+      }
+    },
+
+    deleteUser(userId) {
+      if (confirm('Deactivate this user?')) {
+        fetch(`/api/admin/users/${userId}`, { method: 'DELETE' })
+          .then(() => window.location.reload());
+      }
+    }
+  }
+}
+</script>
+{% endblock %}

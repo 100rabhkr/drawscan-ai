@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}Upload & Extract{% endblock %}
+{% block breadcrumb %}Upload & Extract{% endblock %}
+
+{% block content %}
+<div class="p-6" x-data="uploadApp()">
+
+  <!-- Upload section -->
+  <div x-show="stage === 'upload'" x-transition>
+    <div class="max-w-2xl mx-auto">
+      <div class="text-center mb-8">
+        <h1 class="font-heading font-700 text-2xl text-gray-900 dark:text-white mb-2">Upload Drawing</h1>
+        <p class="text-sm text-gray-500">Drop a 2D engineering drawing PDF to extract dimensional data</p>
+      </div>
+
+      <div class="bg-white dark:bg-uri-dark-card rounded-xl border border-gray-100 dark:border-uri-dark-border p-8">
+        <!-- Dropzone -->
+        <div class="dropzone py-16 px-8 text-center cursor-pointer"
+             :class="{ 'dragover': isDragging }"
+             @dragover.prevent="isDragging = true"
+             @dragleave.prevent="isDragging = false"
+             @drop.prevent="handleDrop($event)"
+             @click="$refs.fileInput.click()">
+
+          <input type="file" x-ref="fileInput" accept=".pdf" class="hidden" @change="handleFile($event)">
+
+          <template x-if="!selectedFile">
+            <div>
+              <div class="w-16 h-16 rounded-2xl bg-uri-blue/5 flex items-center justify-center mx-auto mb-4">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3769F9" stroke-width="1.5" stroke-linecap="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+              </div>
+              <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Drag & drop your PDF drawing here
+              </p>
+              <p class="text-xs text-gray-400">or click to browse &bull; PDF files up to 20MB</p>
+            </div>
+          </template>
+
+          <template x-if="selectedFile">
+            <div class="flex items-center gap-4">
+              <div class="w-14 h-14 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center flex-shrink-0">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="1.5">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/>
+                </svg>
+              </div>
+              <div class="text-left flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 dark:text-white truncate" x-text="selectedFile.name"></p>
+                <p class="text-xs text-gray-400 mt-0.5" x-text="formatSize(selectedFile.size)"></p>
+              </div>
+              <button @click.stop="selectedFile = null" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-uri-dark-surface text-gray-400">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          </template>
+        </div>
+
+        <!-- Extract button -->
+        <div class="mt-6 flex justify-end">
+          <button @click="startExtraction()"
+                  :disabled="!selectedFile || extracting"
+                  class="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-uri-blue hover:bg-uri-blue-dark text-white font-heading font-600 text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-uri-blue/25">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Extract Dimensions
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Processing section -->
+  <div x-show="stage === 'processing'" x-transition>
+    <div class="max-w-2xl mx-auto">
+      <div class="bg-white dark:bg-uri-dark-card rounded-xl border border-gray-100 dark:border-uri-dark-border p-8">
+
+        <!-- Drawing preview with scan line -->
+        <div class="relative rounded-lg overflow-hidden bg-gray-50 dark:bg-uri-dark-surface mb-8 h-48 flex items-center justify-center">
+          <template x-if="previewUrl">
+            <img :src="previewUrl" class="max-h-full max-w-full object-contain opacity-40">
+          </template>
+          <template x-if="!previewUrl">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#3769F9" stroke-width="1" class="opacity-20">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/>
+            </svg>
+          </template>
+          <div class="scan-line"></div>
+        </div>
+
+        <!-- Stage progress -->
+        <div class="flex items-center gap-0 mb-8">
+          <template x-for="(s, i) in stages" :key="i">
+            <div class="flex items-center" :class="i < stages.length - 1 ? 'flex-1' : ''">
+              <!-- Step dot -->
+              <div class="flex flex-col items-center">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-mono font-700 transition-all"
+                     :class="{
+                       'bg-uri-green text-white': s.done,
+                       'bg-uri-blue text-white stage-pulse': s.active,
+                       'bg-gray-100 dark:bg-uri-dark-surface text-gray-400': !s.done && !s.active
+                     }">
+                  <template x-if="s.done">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  </template>
+                  <template x-if="!s.done">
+                    <span x-text="i + 1"></span>
+                  </template>
+                </div>
+                <span class="text-[10px] mt-2 font-medium text-center max-w-[80px]"
+                      :class="s.active ? 'text-uri-blue' : s.done ? 'text-uri-green' : 'text-gray-400'"
+                      x-text="s.label"></span>
+              </div>
+              <!-- Connector -->
+              <div x-show="i < stages.length - 1"
+                   class="step-connector flex-1 mx-2 mt-[-16px]"
+                   :class="{ 'done': s.done, 'active': s.active }"></div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Status message -->
+        <div class="text-center">
+          <p class="text-sm text-gray-500 dark:text-gray-400" x-text="statusMessage"></p>
+          <p class="font-mono text-xs text-gray-400 mt-2" x-text="elapsedTime + 's elapsed'"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error section -->
+  <div x-show="stage === 'error'" x-transition>
+    <div class="max-w-lg mx-auto text-center">
+      <div class="bg-white dark:bg-uri-dark-card rounded-xl border border-red-200 dark:border-red-800 p-8">
+        <div class="w-12 h-12 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        </div>
+        <h3 class="font-heading font-600 text-lg text-gray-900 dark:text-white mb-2">Extraction Failed</h3>
+        <p class="text-sm text-gray-500 mb-6" x-text="errorMessage"></p>
+        <button @click="reset()" class="px-5 py-2 rounded-lg bg-uri-blue text-white font-heading font-600 text-sm hover:bg-uri-blue-dark transition-colors">
+          Try Again
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function uploadApp() {
+  return {
+    stage: 'upload',
+    isDragging: false,
+    selectedFile: null,
+    extracting: false,
+    previewUrl: null,
+    extractionId: null,
+    errorMessage: '',
+    elapsedTime: 0,
+    timer: null,
+    statusMessage: 'Initializing extraction pipeline...',
+    stages: [
+      { label: 'PDF Processing', done: false, active: false },
+      { label: 'OCR Scan', done: false, active: false },
+      { label: 'AI Extraction', done: false, active: false },
+      { label: 'Structuring', done: false, active: false },
+    ],
+
+    handleDrop(e) {
+      this.isDragging = false;
+      const file = e.dataTransfer.files[0];
+      if (file && file.type === 'application/pdf') {
+        this.selectedFile = file;
+      }
+    },
+
+    handleFile(e) {
+      const file = e.target.files[0];
+      if (file) this.selectedFile = file;
+    },
+
+    formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1048576).toFixed(1) + ' MB';
+    },
+
+    reset() {
+      this.stage = 'upload';
+      this.selectedFile = null;
+      this.extracting = false;
+      this.extractionId = null;
+      this.errorMessage = '';
+      this.elapsedTime = 0;
+      this.stages.forEach(s => { s.done = false; s.active = false; });
+      if (this.timer) clearInterval(this.timer);
+    },
+
+    async startExtraction() {
+      if (!this.selectedFile) return;
+      this.extracting = true;
+      this.stage = 'processing';
+      this.elapsedTime = 0;
+      this.timer = setInterval(() => this.elapsedTime++, 1000);
+
+      // Stage 1: Upload
+      this.stages[0].active = true;
+      this.statusMessage = 'Uploading and processing PDF...';
+
+      try {
+        const formData = new FormData();
+        formData.append('file', this.selectedFile);
+
+        const uploadResp = await fetch('/api/upload', { method: 'POST', body: formData });
+        const uploadData = await uploadResp.json();
+
+        if (!uploadResp.ok) {
+          throw new Error(uploadData.error || 'Upload failed');
+        }
+
+        this.extractionId = uploadData.id;
+        this.stages[0].done = true;
+        this.stages[0].active = false;
+
+        // Stage 2: OCR
+        this.stages[1].active = true;
+        this.statusMessage = 'Running OCR text detection on drawing...';
+
+        // Simulate brief delay for stage visibility
+        await new Promise(r => setTimeout(r, 800));
+        this.stages[1].done = true;
+        this.stages[1].active = false;
+
+        // Stage 3: AI Extraction
+        this.stages[2].active = true;
+        this.statusMessage = 'AI extracting dimensions, tolerances, GD&T...';
+
+        const extractResp = await fetch(`/api/extract/${this.extractionId}`, { method: 'POST' });
+        const extractData = await extractResp.json();
+
+        if (!extractResp.ok) {
+          throw new Error(extractData.error || 'Extraction failed');
+        }
+
+        this.stages[2].done = true;
+        this.stages[2].active = false;
+
+        // Stage 4: Structuring
+        this.stages[3].active = true;
+        this.statusMessage = 'Structuring extraction results...';
+        await new Promise(r => setTimeout(r, 500));
+        this.stages[3].done = true;
+        this.stages[3].active = false;
+
+        clearInterval(this.timer);
+        this.statusMessage = 'Extraction complete! Redirecting to review...';
+        await new Promise(r => setTimeout(r, 1000));
+
+        window.location.href = `/review/${this.extractionId}`;
+
+      } catch (err) {
+        clearInterval(this.timer);
+        this.errorMessage = err.message;
+        this.stage = 'error';
+      }
+    }
+  }
+}
+</script>
+{% endblock %}
