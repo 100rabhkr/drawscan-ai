@@ -78,12 +78,10 @@ def get_ocr_engine():
     if _ocr_engine is None:
         from paddleocr import PaddleOCR
         _ocr_engine = PaddleOCR(
+            use_angle_cls=True,
             lang="en",
-            text_detection_model_name="PP-OCRv4_mobile_det",
-            text_recognition_model_name="en_PP-OCRv4_mobile_rec",
-            use_doc_orientation_classify=False,
-            use_doc_unwarping=False,
-            use_textline_orientation=False,
+            show_log=False,
+            use_gpu=False,
         )
     return _ocr_engine
 
@@ -95,52 +93,15 @@ def ocr_extract(image_bytes: bytes) -> list[dict]:
     img_array = np.array(img)
 
     detections = []
-    try:
-        # PaddleOCR v3.4+ API: predict() returns a result object
-        results = ocr.predict(img_array)
-        for result in results:
-            if hasattr(result, 'rec_texts'):
-                # Batch result object
-                for i, text in enumerate(result.rec_texts):
-                    conf = result.rec_scores[i] if i < len(result.rec_scores) else 0.9
-                    bbox = result.dt_polys[i].tolist() if i < len(result.dt_polys) else [[0,0],[0,0],[0,0],[0,0]]
-                    detections.append({
-                        "text": text,
-                        "confidence": round(float(conf), 3),
-                        "bbox": bbox,
-                    })
-            elif isinstance(result, dict):
-                # Dict-style result
-                texts = result.get('rec_texts', result.get('rec_text', []))
-                scores = result.get('rec_scores', result.get('rec_score', []))
-                polys = result.get('dt_polys', result.get('dt_poly', []))
-                if isinstance(texts, str):
-                    texts, scores, polys = [texts], [scores], [polys]
-                for i, text in enumerate(texts):
-                    conf = scores[i] if i < len(scores) else 0.9
-                    bbox = polys[i] if i < len(polys) else [[0,0],[0,0],[0,0],[0,0]]
-                    if hasattr(bbox, 'tolist'):
-                        bbox = bbox.tolist()
-                    detections.append({
-                        "text": str(text),
-                        "confidence": round(float(conf), 3),
-                        "bbox": bbox,
-                    })
-    except (TypeError, AttributeError):
-        # Fallback: try legacy .ocr() API (PaddleOCR v2.x)
-        try:
-            results = ocr.ocr(img_array, cls=True)
-            if results and results[0]:
-                for line in results[0]:
-                    bbox, (text, confidence) = line
-                    detections.append({
-                        "text": text,
-                        "confidence": round(confidence, 3),
-                        "bbox": bbox,
-                    })
-        except Exception:
-            pass
-
+    results = ocr.ocr(img_array, cls=True)
+    if results and results[0]:
+        for line in results[0]:
+            bbox, (text, confidence) = line
+            detections.append({
+                "text": text,
+                "confidence": round(confidence, 3),
+                "bbox": bbox,
+            })
     return detections
 
 
