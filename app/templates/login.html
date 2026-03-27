@@ -200,23 +200,17 @@
           </button>
         </form>
 
-        <!-- SLA tiers info -->
-        <div class="mt-10 pt-6 border-t border-gray-100 dark:border-uri-dark-border">
-          <div class="font-mono text-[9px] text-gray-400 uppercase tracking-widest mb-3">Service Tiers</div>
-          <div class="flex gap-3">
-            <div class="flex-1 text-center p-2.5 rounded-lg bg-gray-50 dark:bg-uri-dark-surface border border-gray-100 dark:border-uri-dark-border">
-              <div class="sla-badge starter mx-auto mb-1.5">Starter</div>
-              <div class="font-mono text-[10px] text-gray-400">10/mo</div>
+        <!-- Quick sign-in -->
+        <div class="mt-8 pt-6 border-t border-gray-100 dark:border-uri-dark-border">
+          <div class="font-mono text-[9px] text-gray-400 uppercase tracking-widest mb-3">Quick Access</div>
+          <button type="button" @click="$refs.fileInput_email.value='demo@unitedrubber.com'; $refs.fileInput_pass.value='demo123'; $el.closest('div').previousElementSibling.querySelector('form').submit(); loading=true"
+                  onclick="document.querySelector('input[name=email]').value='demo@unitedrubber.com'; document.querySelector('input[name=password]').value='demo123'; document.querySelector('form').submit()"
+                  class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 dark:border-uri-dark-border text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-uri-dark-surface transition-colors">
+            <div class="w-6 h-6 rounded-full bg-uri-blue/10 flex items-center justify-center flex-shrink-0">
+              <span class="font-heading font-700 text-[9px] text-uri-blue">A</span>
             </div>
-            <div class="flex-1 text-center p-2.5 rounded-lg bg-uri-blue/[0.03] border border-uri-blue/10">
-              <div class="sla-badge professional mx-auto mb-1.5">Pro</div>
-              <div class="font-mono text-[10px] text-gray-400">50/mo</div>
-            </div>
-            <div class="flex-1 text-center p-2.5 rounded-lg bg-gray-50 dark:bg-uri-dark-surface border border-gray-100 dark:border-uri-dark-border">
-              <div class="sla-badge enterprise mx-auto mb-1.5">Enterprise</div>
-              <div class="font-mono text-[10px] text-gray-400">Unlimited</div>
-            </div>
-          </div>
+            Sign in as Abhinav Sharma
+          </button>
         </div>
 
         <!-- Footer -->
