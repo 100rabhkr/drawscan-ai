@@ -32,15 +32,9 @@ services:
       - "traefik.http.services.drawscan.loadbalancer.server.port=8000"
       - "traefik.http.routers.drawscan-http.rule=Host(`united.360labs.ai`)"
       - "traefik.http.routers.drawscan-http.entrypoints=web"
-      - "traefik.http.routers.drawscan-http.middlewares=redirect-to-https"
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
-    networks:
-      - coolify
-
-networks:
-  coolify:
-    external: true
+      - "traefik.http.routers.drawscan-http.middlewares=drawscan-redirect"
+      - "traefik.http.middlewares.drawscan-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.drawscan-redirect.redirectscheme.permanent=true"
 
 volumes:
   drawscan-data:
