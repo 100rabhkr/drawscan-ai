@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en" x-data="{ darkMode: localStorage.getItem('darkMode') === 'true', sidebarOpen: true, toasts: [] }"
-      :class="{ 'dark': darkMode }" class="h-full">
+      :class="{ 'dark': darkMode }" class="h-full overflow-x-hidden">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}DrawScan AI{% endblock %} — United Rubber Industries</title>
+  <title>{% block title %}DrawScan AI{% endblock %} | United Rubber Industries</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <link rel="stylesheet" href="/static/css/custom.css">
@@ -37,12 +37,19 @@
     }
   </script>
 </head>
-<body class="h-full font-body bg-[#F5F7FC] text-gray-900 dark:bg-uri-dark dark:text-gray-100 transition-colors duration-200">
+<body class="h-full font-body bg-[#F5F7FC] text-gray-900 dark:bg-uri-dark dark:text-gray-100 transition-colors duration-200 overflow-x-hidden">
 
-  <div class="flex h-full">
+  <div class="flex h-full overflow-x-hidden" x-data="{ mobileMenuOpen: false }">
+    <!-- ═══════════ MOBILE OVERLAY ═══════════ -->
+    <div x-show="mobileMenuOpen" @click="mobileMenuOpen = false" x-transition.opacity
+         class="fixed inset-0 bg-black/50 z-40 lg:hidden"></div>
+
     <!-- ═══════════ SIDEBAR ═══════════ -->
-    <aside :class="sidebarOpen ? 'w-64' : 'w-16'"
-           class="flex flex-col h-full bg-white dark:bg-uri-dark-card border-r border-gray-200 dark:border-uri-dark-border transition-all duration-200 flex-shrink-0">
+    <aside :class="[
+             sidebarOpen ? 'lg:w-64' : 'lg:w-16 sidebar-collapsed',
+             mobileMenuOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'
+           ]"
+           class="flex flex-col h-full bg-white dark:bg-uri-dark-card lg:border-r border-gray-200 dark:border-uri-dark-border transition-all duration-200 flex-shrink-0 fixed lg:relative z-50 lg:z-auto -translate-x-full lg:translate-x-0 w-0 lg:w-auto overflow-hidden">
 
       <!-- Logo -->
       <div class="flex items-center gap-3 px-4 h-16 border-b border-gray-200 dark:border-uri-dark-border">
@@ -110,6 +117,20 @@
         </div>
       </div>
 
+      <!-- Dark mode toggle -->
+      <div class="px-3 py-2 border-t border-gray-100 dark:border-uri-dark-border">
+        <button @click="darkMode = !darkMode; localStorage.setItem('darkMode', darkMode)"
+                class="sidebar-link w-full">
+          <svg x-show="!darkMode" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+          <svg x-show="darkMode" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
+          <span x-show="sidebarOpen" x-text="darkMode ? 'Light Mode' : 'Dark Mode'"></span>
+        </button>
+      </div>
+
       <!-- User -->
       <div class="px-3 py-3 border-t border-gray-100 dark:border-uri-dark-border" x-data="{ userMenu: false }">
         <button @click="userMenu = !userMenu" class="flex items-center gap-3 w-full px-2 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-uri-dark-surface transition-colors">
@@ -129,35 +150,49 @@
     </aside>
 
     <!-- ═══════════ MAIN CONTENT ═══════════ -->
-    <div class="flex-1 flex flex-col min-w-0 h-full">
+    <div class="flex-1 flex flex-col min-w-0 h-full w-full">
       <!-- Top bar -->
-      <header class="h-14 flex items-center justify-between px-6 border-b border-gray-200 dark:border-uri-dark-border bg-white/80 dark:bg-uri-dark-card/80 backdrop-blur-sm flex-shrink-0">
+      <header class="h-16 flex items-center justify-between px-6 border-b border-gray-200 dark:border-uri-dark-border bg-white/80 dark:bg-uri-dark-card/80 backdrop-blur-sm flex-shrink-0 relative">
         <div class="flex items-center gap-3">
-          <button @click="sidebarOpen = !sidebarOpen" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-uri-dark-surface transition-colors">
+          <!-- Mobile: logo on left -->
+          <a href="/dashboard" class="flex items-center gap-2 lg:hidden">
+            <div class="w-7 h-7 rounded-md bg-uri-blue flex items-center justify-center flex-shrink-0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/>
+                <path d="M14 2v6h6"/>
+                <path d="M9 15h6"/>
+                <path d="M9 11h6"/>
+              </svg>
+            </div>
+            <div>
+              <div class="font-heading font-800 text-xs tracking-tight leading-none">DrawScan</div>
+              <div class="font-mono text-[8px] text-uri-blue tracking-widest uppercase">AI Engine</div>
+            </div>
+          </a>
+          <!-- Desktop: toggle sidebar collapse -->
+          <button @click="sidebarOpen = !sidebarOpen" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-uri-dark-surface transition-colors hidden lg:block">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
           </button>
-          <div class="text-sm font-heading font-600 text-gray-400">
+          <div class="text-sm font-heading font-600 text-gray-400 hidden lg:block">
             {% block breadcrumb %}Dashboard{% endblock %}
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <!-- Dark mode toggle -->
-          <button @click="darkMode = !darkMode; localStorage.setItem('darkMode', darkMode)"
-                  class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-uri-dark-surface transition-colors">
-            <svg x-show="!darkMode" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-            <svg x-show="darkMode" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          {% block header_actions %}{% endblock %}
+          <!-- Mobile: United Rubber logo + hamburger on right -->
+          <img src="https://unitedrubber.com/wp-content/uploads/2024/10/logo.png" alt="United Rubber" class="h-7 dark:bg-white dark:rounded dark:px-1">
+          <button @click="mobileMenuOpen = !mobileMenuOpen" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-uri-dark-surface transition-colors lg:hidden">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
           </button>
         </div>
       </header>
 
       <!-- Page content -->
-      <main class="flex-1 overflow-y-auto blueprint-grid">
+      <main class="flex-1 overflow-y-auto overflow-x-hidden blueprint-grid">
         <div class="page-enter">
           {% block content %}{% endblock %}
         </div>

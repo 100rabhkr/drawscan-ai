@@ -1,66 +1,79 @@
 {% extends "base.html" %}
-{% block title %}Review — {{ extraction.filename }}{% endblock %}
-{% block breadcrumb %}Review & Edit{% endblock %}
+{% block title %}Review | {{ extraction.filename }}{% endblock %}
+{% block breadcrumb %}
+<span class="flex items-center gap-2">
+  <span class="font-heading font-600 text-sm text-gray-900 dark:text-white">{{ extraction.filename }}</span>
+  <span class="font-mono text-[10px] text-gray-400">ID #{{ extraction.id }}</span>
+  {% if extraction.accuracy_score %}
+  <span class="font-mono text-[10px] {% if extraction.accuracy_score >= 90 %}text-uri-green{% elif extraction.accuracy_score >= 70 %}text-amber-500{% else %}text-red-500{% endif %}">
+    {{ extraction.accuracy_score }}% confidence
+  </span>
+  {% endif %}
+  {% if extraction.processing_time_ms %}
+  <span class="font-mono text-[10px] text-gray-400">{{ (extraction.processing_time_ms / 1000)|round(1) }}s</span>
+  {% endif %}
+</span>
+{% endblock %}
+
+{% block header_actions %}
+<!-- Mobile: icon-only buttons -->
+<div x-data="reviewApp()" class="flex items-center gap-1 lg:hidden">
+  <button @click="reExtract()" :disabled="approving"
+          class="p-2 rounded-lg border border-gray-200 dark:border-uri-dark-border text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-uri-dark-surface transition-colors">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+  </button>
+  <button @click="approveAndGenerate()" :disabled="approving"
+          class="p-2 rounded-lg bg-uri-green hover:bg-uri-green-soft text-white transition-all disabled:opacity-50 shadow-sm shadow-uri-green/25">
+    <template x-if="!approving">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    </template>
+    <template x-if="approving">
+      <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+    </template>
+  </button>
+</div>
+<!-- Desktop: full buttons -->
+<div x-data="reviewApp()" class="hidden lg:flex items-center gap-2">
+  <button @click="reExtract()" :disabled="approving"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-uri-dark-border text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-uri-dark-surface transition-colors">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    Re-extract
+  </button>
+  <button @click="approveAndGenerate()" :disabled="approving"
+          class="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-uri-green hover:bg-uri-green-soft text-white font-heading font-600 text-xs transition-all disabled:opacity-50 shadow-sm shadow-uri-green/25">
+    <template x-if="!approving">
+      <span class="flex items-center gap-1.5">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Approve & Generate Report
+      </span>
+    </template>
+    <template x-if="approving">
+      <span class="flex items-center gap-1.5">
+        <svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        Generating...
+      </span>
+    </template>
+  </button>
+</div>
+{% endblock %}
 
 {% block content %}
-<div class="h-full" x-data="reviewApp()">
+<div class="h-full overflow-x-hidden" x-data="reviewApp()">
 
-  <!-- Top bar -->
-  <div class="flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-uri-dark-border bg-white dark:bg-uri-dark-card">
-    <div class="flex items-center gap-3">
-      <a href="/dashboard" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-uri-dark-surface transition-colors text-gray-400">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-      </a>
-      <div>
-        <h1 class="font-heading font-600 text-sm text-gray-900 dark:text-white">{{ extraction.filename }}</h1>
-        <div class="flex items-center gap-3 mt-0.5">
-          <span class="font-mono text-[10px] text-gray-400">ID #{{ extraction.id }}</span>
-          {% if extraction.accuracy_score %}
-          <span class="font-mono text-[10px] {% if extraction.accuracy_score >= 90 %}text-uri-green{% elif extraction.accuracy_score >= 70 %}text-amber-500{% else %}text-red-500{% endif %}">
-            {{ extraction.accuracy_score }}% confidence
-          </span>
-          {% endif %}
-          {% if extraction.processing_time_ms %}
-          <span class="font-mono text-[10px] text-gray-400">{{ (extraction.processing_time_ms / 1000)|round(1) }}s</span>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-    <div class="flex items-center gap-2">
-      <button @click="reExtract()" :disabled="approving"
-              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-uri-dark-border text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-uri-dark-surface transition-colors">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-        Re-extract
-      </button>
-      <button @click="approveAndGenerate()" :disabled="approving"
-              class="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-uri-green hover:bg-uri-green-soft text-white font-heading font-600 text-xs transition-all disabled:opacity-50 shadow-sm shadow-uri-green/25">
-        <template x-if="!approving">
-          <span class="flex items-center gap-1.5">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            Approve & Generate Report
-          </span>
-        </template>
-        <template x-if="approving">
-          <span class="flex items-center gap-1.5">
-            <svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-            Generating...
-          </span>
-        </template>
-      </button>
-    </div>
-  </div>
+  <!-- Stacked view -->
+  <div class="h-[calc(100vh-80px)] overflow-auto">
 
-  <!-- Split view -->
-  <div class="flex h-[calc(100vh-140px)]">
-
-    <!-- Left: Drawing image -->
-    <div class="w-1/2 border-r border-gray-200 dark:border-uri-dark-border bg-gray-50 dark:bg-uri-dark-surface p-4 overflow-auto">
+    <!-- Top: Drawing image -->
+    <div class="bg-white dark:bg-uri-dark-card p-3 lg:p-6">
       {% if extraction.image_path %}
-      <div class="relative rounded-lg overflow-hidden bg-white dark:bg-uri-dark-card shadow-sm">
-        <img src="/api/extraction/{{ extraction.id }}/image" class="w-full h-auto" alt="Drawing preview">
+      <div class="relative rounded-lg overflow-hidden bg-white dark:bg-uri-dark-card shadow-sm border border-gray-200 dark:border-uri-dark-border max-w-4xl mx-auto">
+        <div class="p-3 border-b border-gray-100 dark:border-uri-dark-border">
+          <span class="text-xs text-gray-500 dark:text-gray-400">{{ extraction.filename }} (drawing)</span>
+        </div>
+        <img src="/api/extraction/{{ extraction.id }}/image" class="w-full h-auto max-h-[50vh] object-contain" alt="Drawing preview">
       </div>
       {% else %}
-      <div class="flex items-center justify-center h-full text-gray-400">
+      <div class="flex items-center justify-center h-64 text-gray-400">
         <div class="text-center">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="mx-auto mb-3 opacity-30">
             <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
@@ -71,8 +84,8 @@
       {% endif %}
     </div>
 
-    <!-- Right: Extracted data -->
-    <div class="w-1/2 overflow-auto bg-white dark:bg-uri-dark-card">
+    <!-- Below: Extracted data -->
+    <div class="bg-white dark:bg-uri-dark-card">
 
       <!-- Title block (collapsible) -->
       <div class="border-b border-gray-100 dark:border-uri-dark-border" x-data="{ open: false }">
@@ -96,7 +109,7 @@
       </div>
 
       <!-- Dimensions table -->
-      <div class="px-5 py-4">
+      <div class="px-3 lg:px-5 py-4">
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3769F9" stroke-width="2"><path d="M21 3H3v18"/><path d="M21 3l-9 9"/></svg>
@@ -105,9 +118,9 @@
           </div>
         </div>
 
-        <div class="overflow-x-auto rounded-lg border border-gray-100 dark:border-uri-dark-border">
-          <table class="w-full data-table">
-            <thead>
+        <div class="rounded-lg border border-gray-100 dark:border-uri-dark-border max-h-[400px] overflow-auto overscroll-contain">
+          <table class="w-full min-w-[600px] lg:min-w-[900px] data-table">
+            <thead class="sticky top-0 z-10">
               <tr class="bg-gray-50 dark:bg-uri-dark-surface">
                 <th class="w-10">#</th>
                 <th>Type</th>
